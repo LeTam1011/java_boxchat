@@ -1,6 +1,7 @@
 package com.javaboxchat.server;
 
 import com.google.gson.Gson;
+import com.javaboxchat.dao.CallHistoryDAO;
 import com.javaboxchat.dao.MessageDAO;
 import com.javaboxchat.model.*;
 
@@ -11,10 +12,6 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import com.javaboxchat.model.Message;
-import com.javaboxchat.model.CallRequest;
-import com.javaboxchat.model.CallResponse;
-import com.javaboxchat.model.CallEnd;
 
 import com.javaboxchat.util.ServerLogger;
 
@@ -32,6 +29,9 @@ public class ClientHandler implements Runnable {
 
     private final MessageDAO messageDAO =
             new MessageDAO();
+
+    private final CallHistoryDAO callHistoryDAO =
+            new CallHistoryDAO();
 
     private final FriendDAO friendDAO =
             new FriendDAO();
@@ -289,6 +289,10 @@ public class ClientHandler implements Runnable {
                 }
 
 // Tin nhắn chat
+                // =====================================================
+// =================== CALL REQUEST ====================
+// =====================================================
+
                 if ("CALL_REQUEST".equals(typeRequest)) {
 
                     CallRequest callRequest =
@@ -297,6 +301,13 @@ public class ClientHandler implements Runnable {
                                     CallRequest.class
                             );
 
+                    System.out.println(
+                            "CALL REQUEST: "
+                                    + callRequest.getCaller()
+                                    + " -> "
+                                    + callRequest.getReceiver()
+                    );
+
                     ClientHandler target =
                             ClientManager.getClient(
                                     callRequest.getReceiver()
@@ -304,11 +315,25 @@ public class ClientHandler implements Runnable {
 
                     if (target != null) {
 
+                        System.out.println(
+                                "CALL REQUEST SENT TO: "
+                                        + callRequest.getReceiver()
+                        );
+
+                        // QUAN TRỌNG:
+                        // Phải gửi callRequest, KHÔNG phải request
                         target.sendMessage(
-                                gson.toJson(request)
+                                gson.toJson(
+                                        callRequest
+                                )
                         );
 
                     } else {
+
+                        System.out.println(
+                                "CALL TARGET OFFLINE: "
+                                        + callRequest.getReceiver()
+                        );
 
                         CallResponse callResponse =
                                 new CallResponse(
@@ -319,12 +344,20 @@ public class ClientHandler implements Runnable {
                                 );
 
                         sendMessage(
-                                gson.toJson(callResponse)
+                                gson.toJson(
+                                        callResponse
+                                )
                         );
                     }
 
                     continue;
                 }
+
+
+// =====================================================
+// =================== CALL RESPONSE ===================
+// =====================================================
+
                 if ("CALL_RESPONSE".equals(typeRequest)) {
 
                     CallResponse callResponse =
@@ -333,6 +366,15 @@ public class ClientHandler implements Runnable {
                                     CallResponse.class
                             );
 
+                    System.out.println(
+                            "CALL RESPONSE: "
+                                    + callResponse.getCaller()
+                                    + " -> "
+                                    + callResponse.getReceiver()
+                                    + " | accepted = "
+                                    + callResponse.isAccepted()
+                    );
+
                     ClientHandler caller =
                             ClientManager.getClient(
                                     callResponse.getCaller()
@@ -340,8 +382,54 @@ public class ClientHandler implements Runnable {
 
                     if (caller != null) {
 
+                        // Gửi kết quả chấp nhận / từ chối
+                        // Phải gửi callResponse, KHÔNG phải response
                         caller.sendMessage(
-                                gson.toJson(callResponse)
+                                gson.toJson(
+                                        callResponse
+                                )
+                        );
+
+
+                        // =================================================
+                        // Người nhận ĐỒNG Ý
+                        // =================================================
+
+                        if (callResponse.isAccepted()) {
+
+                            String receiverIp =
+                                    socket.getInetAddress()
+                                            .getHostAddress();
+
+                            System.out.println(
+                                    "CALL PEER IP = "
+                                            + receiverIp
+                            );
+
+                            CallConnectInfo connectInfo =
+                                    new CallConnectInfo(
+                                            "CALL_CONNECT_INFO",
+                                            callResponse.getReceiver(),
+                                            receiverIp,
+                                            10000
+                                    );
+
+                            caller.sendMessage(
+                                    gson.toJson(
+                                            connectInfo
+                                    )
+                            );
+
+                            System.out.println(
+                                    "CALL_CONNECT_INFO SENT"
+                            );
+                        }
+
+                    } else {
+
+                        System.out.println(
+                                "CALLER OFFLINE: "
+                                        + callResponse.getCaller()
                         );
                     }
 
@@ -355,17 +443,91 @@ public class ClientHandler implements Runnable {
                                     CallEnd.class
                             );
 
+
+                    System.out.println(
+                            "CALL END: "
+                                    + end.getCaller()
+                                    + " -> "
+                                    + end.getReceiver()
+                                    + " | duration = "
+                                    + end.getDurationSeconds()
+                                    + " seconds"
+                    );
+
+
+                    /*
+                     * Lưu lịch sử cuộc gọi
+                     */
+
+                    java.time.LocalDateTime endTime =
+                            java.time.LocalDateTime.now();
+
+                    java.time.LocalDateTime startTime =
+                            endTime.minusSeconds(
+                                    end.getDurationSeconds()
+                            );
+
+
+                    callHistoryDAO.saveCall(
+                            end.getCaller(),
+                            end.getReceiver(),
+                            startTime,
+                            endTime,
+                            end.getDurationSeconds()
+                    );
+
+
+                    /*
+                     * Gửi CALL_END sang người còn lại
+                     */
+
                     ClientHandler target =
                             ClientManager.getClient(
                                     end.getReceiver()
                             );
+
 
                     if (target != null) {
 
                         target.sendMessage(
                                 gson.toJson(end)
                         );
+
+                        System.out.println(
+                                "CALL_END SENT TO: "
+                                        + end.getReceiver()
+                        );
                     }
+
+
+                    continue;
+                }
+                if ("CALL_HISTORY_REQUEST".equals(typeRequest)) {
+
+                    CallHistoryRequest historycallRequest =
+                            gson.fromJson(
+                                    json,
+                                    CallHistoryRequest.class
+                            );
+
+
+                    List<CallHistory> calls =
+                            callHistoryDAO.getCallHistory(
+                                    historycallRequest.getUsername()
+                            );
+
+
+                    CallHistoryResponse historycallResponse =
+                            new CallHistoryResponse(
+                                    "CALL_HISTORY_RESPONSE",
+                                    calls
+                            );
+
+
+                    writer.println(
+                            gson.toJson(historycallResponse)
+                    );
+
 
                     continue;
                 }

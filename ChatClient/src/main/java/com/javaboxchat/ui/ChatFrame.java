@@ -7,12 +7,12 @@ import com.google.gson.JsonObject;
 
 import com.javaboxchat.file.FileClient;
 import com.javaboxchat.model.*;
+import java.util.List;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.PrintWriter;
 import java.net.Socket;
-import com.javaboxchat.model.HistoryRequest;
 import com.javaboxchat.voice.CallController;
 
 import java.awt.event.MouseAdapter;
@@ -21,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.awt.Desktop;
 
@@ -64,9 +63,13 @@ public class ChatFrame extends JFrame {
 
     private JButton btnCall;
 
+    private JButton btnCallHistory;
+
     private JButton btnAvatar;
 
     private JLabel lblAvatar;
+
+    private CallController callController;
 
     private final java.util.Map<String, Integer>
             unreadMap =
@@ -251,9 +254,14 @@ public class ChatFrame extends JFrame {
 
         btnCall = new JButton("📞 Gọi");
 
+        btnCallHistory =
+                new JButton("📞 Lịch sử gọi");
+
         bottomPanel.add(btnFile);
 
         bottomPanel.add(btnCall);
+
+        bottomPanel.add(btnCallHistory);
 
         btnAvatar =
                 new JButton(
@@ -320,7 +328,9 @@ public class ChatFrame extends JFrame {
 
                 while ((json = reader.readLine()) != null) {
 
-                    System.out.println("Received: " + json);
+                    System.out.println(
+                            "Received: " + json
+                    );
 
                     JsonObject object =
                             gson.fromJson(
@@ -328,11 +338,26 @@ public class ChatFrame extends JFrame {
                                     JsonObject.class
                             );
 
+                    if (object == null ||
+                            !object.has("type")) {
+
+                        System.out.println(
+                                "JSON không có type: "
+                                        + json
+                        );
+
+                        continue;
+                    }
+
                     String type =
                             object.get("type")
                                     .getAsString();
 
+
+                    // =====================================================
                     // ONLINE USERS
+                    // =====================================================
+
                     if ("ONLINE_USERS".equals(type)) {
 
                         GetFriendsRequest request =
@@ -345,10 +370,16 @@ public class ChatFrame extends JFrame {
                                 gson.toJson(request)
                         );
 
+                        writer.flush();
+
                         continue;
                     }
 
-                    // Lịch sử chat
+
+                    // =====================================================
+                    // HISTORY
+                    // =====================================================
+
                     if ("HISTORY_RESPONSE".equals(type)) {
 
                         HistoryResponse response =
@@ -357,8 +388,596 @@ public class ChatFrame extends JFrame {
                                         HistoryResponse.class
                                 );
 
-                        for (Message msg :
-                                response.getMessages()) {
+                        SwingUtilities.invokeLater(() -> {
+
+                            chatPanel.removeAll();
+
+                            lastDate = "";
+
+                            for (Message msg :
+                                    response.getMessages()) {
+
+                                if ("FILE".equals(
+                                        msg.getMessageType()
+                                )) {
+
+                                    addFileMessage(
+                                            msg.getSender(),
+                                            msg.getContent(),
+                                            msg.getFilePath()
+                                    );
+
+                                } else {
+
+                                    addBubbleMessage(
+                                            msg.getId(),
+                                            msg.getSender(),
+                                            msg.getContent(),
+                                            msg.getTimestamp(),
+                                            msg.isRecalled()
+                                    );
+                                }
+                            }
+
+                            chatPanel.revalidate();
+                            chatPanel.repaint();
+                        });
+
+                        continue;
+                    }
+
+
+                    // =====================================================
+                    // SEARCH USER
+                    // =====================================================
+
+                    if ("SEARCH_USER_RESULT".equals(type)) {
+
+                        SearchUserResponse response =
+                                gson.fromJson(
+                                        json,
+                                        SearchUserResponse.class
+                                );
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            if (response.isFound()) {
+
+                                JOptionPane.showMessageDialog(
+                                        this,
+                                        "Tìm thấy user: "
+                                                + response.getUsername()
+                                );
+
+                                btnAddFriend.setEnabled(
+                                        true
+                                );
+
+                                btnAddFriend.putClientProperty(
+                                        "targetUser",
+                                        response.getUsername()
+                                );
+
+                            } else {
+
+                                JOptionPane.showMessageDialog(
+                                        this,
+                                        "Không tìm thấy user"
+                                );
+
+                                btnAddFriend.setEnabled(
+                                        false
+                                );
+                            }
+                        });
+
+                        continue;
+                    }
+
+
+                    // =====================================================
+                    // PENDING FRIEND REQUESTS
+                    // =====================================================
+
+                    if ("PENDING_REQUESTS".equals(type)) {
+
+                        PendingRequestsResponse response =
+                                gson.fromJson(
+                                        json,
+                                        PendingRequestsResponse.class
+                                );
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            RequestListFrame frame =
+                                    new RequestListFrame(
+                                            response.getRequests(),
+                                            currentUser,
+                                            writer
+                                    );
+
+                            frame.setVisible(true);
+                        });
+
+                        continue;
+                    }
+
+
+                    // =====================================================
+                    // FRIENDS LIST
+                    // =====================================================
+
+                    if ("FRIENDS_LIST".equals(type)) {
+
+                        FriendsResponse response =
+                                gson.fromJson(
+                                        json,
+                                        FriendsResponse.class
+                                );
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            userModel.clear();
+
+                            for (FriendInfo friend :
+                                    response.getFriends()) {
+
+                                if (friend.isOnline()) {
+
+                                    userModel.addElement(
+                                            "🟢 "
+                                                    + friend.getUsername()
+                                    );
+
+                                } else {
+
+                                    userModel.addElement(
+                                            "⚫ "
+                                                    + friend.getUsername()
+                                    );
+                                }
+                            }
+                        });
+
+                        continue;
+                    }
+
+
+                    // =====================================================
+                    // RECALL
+                    // =====================================================
+
+                    if ("RECALL_SUCCESS".equals(type)) {
+
+                        String selectedUser =
+                                txtReceiver.getText();
+
+                        if (!selectedUser.isEmpty()) {
+
+                            HistoryRequest request =
+                                    new HistoryRequest(
+                                            "HISTORY_REQUEST",
+                                            currentUser,
+                                            selectedUser
+                                    );
+
+                            writer.println(
+                                    gson.toJson(request)
+                            );
+
+                            writer.flush();
+                        }
+
+                        continue;
+                    }
+
+
+                    // =====================================================
+                    // ================= CALL REQUEST =====================
+                    // =====================================================
+
+                    if ("CALL_REQUEST".equals(type)) {
+
+                        CallRequest request =
+                                gson.fromJson(
+                                        json,
+                                        CallRequest.class
+                                );
+
+                        System.out.println(
+                                "================================"
+                        );
+
+                        System.out.println(
+                                "INCOMING CALL"
+                        );
+
+                        System.out.println(
+                                "Caller: "
+                                        + request.getCaller()
+                        );
+
+                        System.out.println(
+                                "Receiver: "
+                                        + request.getReceiver()
+                        );
+
+                        System.out.println(
+                                "Current user: "
+                                        + currentUser
+                        );
+
+                        System.out.println(
+                                "================================"
+                        );
+
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            int option =
+                                    JOptionPane.showConfirmDialog(
+                                            this,
+
+                                            request.getCaller()
+                                                    + " đang gọi cho bạn.",
+
+                                            "📞 Cuộc gọi đến",
+
+                                            JOptionPane.YES_NO_OPTION,
+
+                                            JOptionPane.INFORMATION_MESSAGE
+                                    );
+
+                            boolean accepted =
+                                    option == JOptionPane.YES_OPTION;
+
+
+                            if (accepted) {
+
+                                System.out.println(
+                                        "CALL ACCEPTED"
+                                );
+
+
+                                /*
+                                 * QUAN TRỌNG:
+                                 * Phải lưu vào biến thành viên
+                                 * callController
+                                 */
+                                callController =
+                                        new CallController(
+                                                currentUser,
+                                                request.getCaller(),
+                                                writer
+                                        );
+
+
+                                callController.startListening();
+
+
+                                CallResponse response =
+                                        new CallResponse(
+                                                "CALL_RESPONSE",
+                                                request.getCaller(),
+                                                currentUser,
+                                                true
+                                        );
+
+                                writer.println(
+                                        gson.toJson(response)
+                                );
+
+                                writer.flush();
+
+                                System.out.println(
+                                        "CALL_RESPONSE SENT: "
+                                                + gson.toJson(response)
+                                );
+
+                            } else {
+
+                                System.out.println(
+                                        "CALL REJECTED"
+                                );
+
+                                CallResponse response =
+                                        new CallResponse(
+                                                "CALL_RESPONSE",
+                                                request.getCaller(),
+                                                currentUser,
+                                                false
+                                        );
+
+                                writer.println(
+                                        gson.toJson(response)
+                                );
+
+                                writer.flush();
+
+                                System.out.println(
+                                        "CALL_RESPONSE SENT: "
+                                                + gson.toJson(response)
+                                );
+                            }
+
+                        });
+
+                        continue;
+                    }
+
+
+                    // =====================================================
+                    // ================= CALL RESPONSE ====================
+                    // =====================================================
+
+                    if ("CALL_CONNECT_INFO".equals(type)) {
+
+                        CallConnectInfo info =
+                                gson.fromJson(
+                                        json,
+                                        CallConnectInfo.class
+                                );
+
+                        System.out.println(
+                                "================================"
+                        );
+
+                        System.out.println(
+                                "CALL CONNECT INFO"
+                        );
+
+                        System.out.println(
+                                "Partner: "
+                                        + info.getPartner()
+                        );
+
+                        System.out.println(
+                                "IP: "
+                                        + info.getIp()
+                        );
+
+                        System.out.println(
+                                "Port: "
+                                        + info.getPort()
+                        );
+
+                        System.out.println(
+                                "================================"
+                        );
+
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            /*
+                             * QUAN TRỌNG:
+                             * Dùng biến callController của ChatFrame
+                             */
+                            callController =
+                                    new CallController(
+                                            currentUser,
+                                            info.getPartner(),
+                                            writer
+                                    );
+
+
+                            boolean connected =
+                                    callController.connectToPeer(
+                                            info.getIp(),
+                                            info.getPort()
+                                    );
+
+
+                            if (!connected) {
+
+                                JOptionPane.showMessageDialog(
+                                        this,
+                                        "Không thể kết nối cuộc gọi!"
+                                );
+
+                                callController = null;
+
+                                return;
+                            }
+
+
+                            System.out.println(
+                                    "VOICE CONNECTED"
+                            );
+
+
+                            callController.getFrame()
+                                    .setStatus(
+                                            "Đã kết nối"
+                                    );
+
+                        });
+
+                        continue;
+                    }
+
+                    // =====================================================
+                    // ================ CALL CONNECT INFO =================
+                    // =====================================================
+
+                    if ("CALL_CONNECT_INFO".equals(type)) {
+
+                        CallConnectInfo info =
+                                gson.fromJson(
+                                        json,
+                                        CallConnectInfo.class
+                                );
+
+                        System.out.println(
+                                "================================"
+                        );
+
+                        System.out.println(
+                                "CALL CONNECT INFO"
+                        );
+
+                        System.out.println(
+                                "Partner: "
+                                        + info.getPartner()
+                        );
+
+                        System.out.println(
+                                "IP: "
+                                        + info.getIp()
+                        );
+
+                        System.out.println(
+                                "Port: "
+                                        + info.getPort()
+                        );
+
+                        System.out.println(
+                                "================================"
+                        );
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            callController =
+                                    new CallController(
+                                            currentUser,
+                                            info.getPartner(),
+                                            writer
+                                    );
+
+                            boolean connected =
+                                    callController.connectToPeer(
+                                            info.getIp(),
+                                            info.getPort()
+                                    );
+
+                            if (!connected) {
+
+                                JOptionPane.showMessageDialog(
+                                        this,
+                                        "Không thể kết nối cuộc gọi!"
+                                );
+
+                                callController = null;
+
+                                return;
+                            }
+
+                            System.out.println(
+                                    "VOICE CONNECTED"
+                            );
+
+                        });
+
+                        continue;
+                    }
+
+                    // =====================================================
+                    // ==================== CALL END ======================
+                    // =====================================================
+
+                    if ("CALL_END".equals(type)) {
+
+                        CallEnd end =
+                                gson.fromJson(
+                                        json,
+                                        CallEnd.class
+                                );
+
+                        System.out.println(
+                                "CALL ENDED BY: "
+                                        + end.getCaller()
+                        );
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            /*
+                             * Đóng CallFrame NGAY
+                             */
+                            if (callController != null) {
+
+                                callController.closeCall();
+
+                                callController = null;
+                            }
+
+
+                            /*
+                             * Sau khi CallFrame đã đóng
+                             * mới hiện thông báo
+                             */
+                            JOptionPane.showMessageDialog(
+                                    this,
+
+                                    end.getCaller()
+                                            + " đã ngắt kết nối cuộc gọi.",
+
+                                    "Cuộc gọi kết thúc",
+
+                                    JOptionPane.INFORMATION_MESSAGE
+                            );
+
+                        });
+
+                        continue;
+                    }
+
+                    // =====================================================
+                    // ================= CALL OFFLINE =====================
+                    // =====================================================
+
+                    if ("CALL_OFFLINE".equals(type)) {
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            JOptionPane.showMessageDialog(
+                                    this,
+                                    "Người dùng hiện không online."
+                            );
+
+                        });
+
+                        continue;
+                    }
+
+                    if ("CALL_HISTORY_RESPONSE".equals(type)) {
+
+                        CallHistoryResponse response =
+                                gson.fromJson(
+                                        json,
+                                        CallHistoryResponse.class
+                                );
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            showCallHistory(
+                                    response.getCalls()
+                            );
+
+                        });
+
+                        continue;
+                    }
+
+
+                    // =====================================================
+                    // ====================== MESSAGE =====================
+                    // =====================================================
+
+                    if ("MESSAGE".equals(type)) {
+
+                        Message msg =
+                                gson.fromJson(
+                                        json,
+                                        Message.class
+                                );
+
+
+                        SwingUtilities.invokeLater(() -> {
+
+                            boolean isMine =
+                                    currentUser.equals(
+                                            msg.getSender()
+                                    );
+
 
                             if ("FILE".equals(
                                     msg.getMessageType()
@@ -380,267 +999,26 @@ public class ChatFrame extends JFrame {
                                         msg.isRecalled()
                                 );
                             }
-                        }
-
-                        continue;
-                    }
-                    if ("SEARCH_USER_RESULT".equals(type)) {
-
-                        SearchUserResponse response =
-                                gson.fromJson(
-                                        json,
-                                        SearchUserResponse.class
-                                );
-
-                        SwingUtilities.invokeLater(() -> {
-
-                            if (response.isFound()) {
-
-                                JOptionPane.showMessageDialog(
-                                        this,
-                                        "Tìm thấy user: "
-                                                + response.getUsername()
-                                );
-
-                                btnAddFriend.setEnabled(true);
-
-                                btnAddFriend.putClientProperty(
-                                        "targetUser",
-                                        response.getUsername()
-                                );
-
-                            } else {
-
-                                JOptionPane.showMessageDialog(
-                                        this,
-                                        "Không tìm thấy user"
-                                );
-
-                                btnAddFriend.setEnabled(false);
-                            }
-                        });
-
-                        continue;
-                    }
-                    if ("PENDING_REQUESTS".equals(type)) {
-
-                        PendingRequestsResponse pendingResponse =
-                                gson.fromJson(
-                                        json,
-                                        PendingRequestsResponse.class
-                                );
-
-                        SwingUtilities.invokeLater(() -> {
-
-                            RequestListFrame frame =
-                                    new RequestListFrame(
-                                            pendingResponse.getRequests(),
-                                            currentUser,
-                                            writer
-                                    );
-
-                            frame.setVisible(true);
-                        });
-
-                        continue;
-                    }
-                    if ("FRIENDS_LIST".equals(type)) {
-
-                        FriendsResponse friendsResponse =
-                                gson.fromJson(
-                                        json,
-                                        FriendsResponse.class
-                                );
-
-                        SwingUtilities.invokeLater(() -> {
-
-                            userModel.clear();
-
-                            for (FriendInfo friend :
-                                    friendsResponse.getFriends()) {
-
-                                if (friend.isOnline()) {
-
-                                    userModel.addElement(
-                                            "🟢 " + friend.getUsername()
-                                    );
-
-                                } else {
-
-                                    userModel.addElement(
-                                            "⚫ " + friend.getUsername()
-                                    );
-                                }
-                            }
-                        });
-
-                        continue;
-                    }
-                    if ("RECALL_SUCCESS".equals(type)) {
-
-                        String selectedUser =
-                                txtReceiver.getText();
-
-                        if (!selectedUser.isEmpty()) {
-
-                            HistoryRequest request =
-                                    new HistoryRequest(
-                                            "HISTORY_REQUEST",
-                                            currentUser,
-                                            selectedUser
-                                    );
-
-                            writer.println(
-                                    gson.toJson(request)
-                            );
-                        }
-
-                        continue;
-                    }
-                    if ("CALL_REQUEST".equals(type)) {
-
-                        CallRequest request =
-                                gson.fromJson(
-                                        json,
-                                        CallRequest.class
-                                );
-
-                        SwingUtilities.invokeLater(() -> {
-
-                            int option =
-                                    JOptionPane.showConfirmDialog(
-
-                                            this,
-
-                                            request.getCaller()
-                                                    + " đang gọi cho bạn.",
-
-                                            "Cuộc gọi đến",
-
-                                            JOptionPane.YES_NO_OPTION,
-
-                                            JOptionPane.INFORMATION_MESSAGE
-                                    );
-
-                            CallResponse response =
-                                    new CallResponse(
-
-                                            "CALL_RESPONSE",
-
-                                            request.getCaller(),
-
-                                            currentUser,
-
-                                            option == JOptionPane.YES_OPTION
-                                    );
-
-                            writer.println(
-                                    gson.toJson(response)
-                            );
 
                         });
 
                         continue;
                     }
-                    if ("CALL_RESPONSE".equals(type)) {
 
-                        CallResponse response =
-                                gson.fromJson(
-                                        json,
-                                        CallResponse.class
-                                );
 
-                        SwingUtilities.invokeLater(() -> {
+                    // =====================================================
+                    // UNKNOWN TYPE
+                    // =====================================================
 
-                            if (response.isAccepted()) {
-
-                                new CallController(
-                                        currentUser,
-                                        response.getReceiver()
-                                );
-
-                            } else {
-
-                                JOptionPane.showMessageDialog(
-
-                                        this,
-
-                                        response.getReceiver()
-                                                + " đã từ chối cuộc gọi."
-                                );
-                            }
-
-                        });
-
-                        continue;
-                    }
-                    if ("CALL_OFFLINE".equals(type)) {
-
-                        SwingUtilities.invokeLater(() ->
-
-                                JOptionPane.showMessageDialog(
-
-                                        this,
-
-                                        "Người dùng hiện không online."
-                                )
-
-                        );
-
-                        continue;
-                    }
-// Tin nhắn mới
-                    Message msg =
-                            gson.fromJson(
-                                    json,
-                                    Message.class
-                            );
-
-                    SwingUtilities.invokeLater(() -> {
-
-                        String currentChatUser =
-                                txtReceiver.getText();
-
-                        if (!msg.getSender().equals(
-                                currentChatUser
-                        )) {
-
-                            unreadMap.put(
-                                    msg.getSender(),
-                                    unreadMap.getOrDefault(
-                                            msg.getSender(),
-                                            0
-                                    ) + 1
-                            );
-
-                            refreshFriendList();
-                        }
-
-                        if ("FILE".equals(
-                                msg.getMessageType()
-                        )) {
-
-                            addFileMessage(
-                                    msg.getSender(),
-                                    msg.getContent(),
-                                    msg.getFilePath()
-                            );
-
-                        } else {
-
-                            addBubbleMessage(
-                                    msg.getId(),
-                                    msg.getSender(),
-                                    msg.getContent(),
-                                    msg.getTimestamp(),
-                                    msg.isRecalled()
-                            );
-                        }
-                    });
-
+                    System.out.println(
+                            "Unknown message type: "
+                                    + type
+                    );
                 }
 
             } catch (Exception e) {
+
+                e.printStackTrace();
 
                 System.out.println(
                         "Mất kết nối Server"
@@ -717,14 +1095,16 @@ public class ChatFrame extends JFrame {
                             receiver
                     );
 
+            System.out.println(
+                    "SEND CALL REQUEST: "
+                            + gson.toJson(request)
+            );
+
             writer.println(
                     gson.toJson(request)
             );
 
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Đang gọi " + receiver + "..."
-            );
+            writer.flush();
         });
 
         userList.addMouseListener(
@@ -975,6 +1355,11 @@ public class ChatFrame extends JFrame {
 
                 ex.printStackTrace();
             }
+        });
+        btnCallHistory.addActionListener(e -> {
+
+            requestCallHistory();
+
         });
     }
     private void refreshFriendList() {
@@ -1363,6 +1748,39 @@ public class ChatFrame extends JFrame {
 
             e.printStackTrace();
         }
+    }
+
+    private void requestCallHistory() {
+
+        CallHistoryRequest request =
+                new CallHistoryRequest(
+                        "CALL_HISTORY_REQUEST",
+                        currentUser
+                );
+
+        writer.println(
+                gson.toJson(request)
+        );
+
+        writer.flush();
+
+        System.out.println(
+                "REQUEST CALL HISTORY: "
+                        + currentUser
+        );
+    }
+
+    private void showCallHistory(
+            List<CallHistory> calls
+    ) {
+
+        CallHistoryFrame frame =
+                new CallHistoryFrame(
+                        currentUser,
+                        calls
+                );
+
+        frame.setVisible(true);
     }
 
     public JPanel getChatPanel() {

@@ -2,6 +2,7 @@ package com.javaboxchat.ui;
 
 import javax.swing.*;
 import java.awt.*;
+import javax.swing.Timer;
 
 public class CallFrame extends JFrame {
 
@@ -14,6 +15,11 @@ public class CallFrame extends JFrame {
     private JButton btnMute;
 
     private JButton btnEnd;
+
+    private Timer callTimer;
+
+    private int elapsedSeconds = 0;
+
 
     public CallFrame(
             String username
@@ -116,6 +122,59 @@ public class CallFrame extends JFrame {
         );
 
         setVisible(true);
+    }
+
+    public void startCallTimer() {
+
+        System.out.println(
+                "CALL TIMER START"
+        );
+
+        elapsedSeconds = 0;
+
+        if (callTimer != null) {
+
+            callTimer.stop();
+        }
+
+        lblTime.setText(
+                "00:00"
+        );
+
+        callTimer =
+                new Timer(
+                        1000,
+                        e -> {
+
+                            elapsedSeconds++;
+
+                            int minutes =
+                                    elapsedSeconds / 60;
+
+                            int seconds =
+                                    elapsedSeconds % 60;
+
+                            lblTime.setText(
+                                    String.format(
+                                            "%02d:%02d",
+                                            minutes,
+                                            seconds
+                                    )
+                            );
+                        }
+                );
+
+        callTimer.start();
+    }
+
+    public void stopCallTimer() {
+
+        if (callTimer != null) {
+
+            callTimer.stop();
+
+            callTimer = null;
+        }
     }
 
     public JButton getBtnEnd() {
