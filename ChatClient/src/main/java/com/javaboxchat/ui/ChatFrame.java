@@ -354,10 +354,6 @@ public class ChatFrame extends JFrame {
                                     .getAsString();
 
 
-                    // =====================================================
-                    // ONLINE USERS
-                    // =====================================================
-
                     if ("ONLINE_USERS".equals(type)) {
 
                         GetFriendsRequest request =
@@ -374,11 +370,6 @@ public class ChatFrame extends JFrame {
 
                         continue;
                     }
-
-
-                    // =====================================================
-                    // HISTORY
-                    // =====================================================
 
                     if ("HISTORY_RESPONSE".equals(type)) {
 
@@ -426,11 +417,6 @@ public class ChatFrame extends JFrame {
                         continue;
                     }
 
-
-                    // =====================================================
-                    // SEARCH USER
-                    // =====================================================
-
                     if ("SEARCH_USER_RESULT".equals(type)) {
 
                         SearchUserResponse response =
@@ -474,11 +460,6 @@ public class ChatFrame extends JFrame {
                         continue;
                     }
 
-
-                    // =====================================================
-                    // PENDING FRIEND REQUESTS
-                    // =====================================================
-
                     if ("PENDING_REQUESTS".equals(type)) {
 
                         PendingRequestsResponse response =
@@ -501,11 +482,6 @@ public class ChatFrame extends JFrame {
 
                         continue;
                     }
-
-
-                    // =====================================================
-                    // FRIENDS LIST
-                    // =====================================================
 
                     if ("FRIENDS_LIST".equals(type)) {
 
@@ -542,11 +518,6 @@ public class ChatFrame extends JFrame {
                         continue;
                     }
 
-
-                    // =====================================================
-                    // RECALL
-                    // =====================================================
-
                     if ("RECALL_SUCCESS".equals(type)) {
 
                         String selectedUser =
@@ -570,11 +541,6 @@ public class ChatFrame extends JFrame {
 
                         continue;
                     }
-
-
-                    // =====================================================
-                    // ================= CALL REQUEST =====================
-                    // =====================================================
 
                     if ("CALL_REQUEST".equals(type)) {
 
@@ -638,12 +604,6 @@ public class ChatFrame extends JFrame {
                                         "CALL ACCEPTED"
                                 );
 
-
-                                /*
-                                 * QUAN TRỌNG:
-                                 * Phải lưu vào biến thành viên
-                                 * callController
-                                 */
                                 callController =
                                         new CallController(
                                                 currentUser,
@@ -705,11 +665,6 @@ public class ChatFrame extends JFrame {
                         continue;
                     }
 
-
-                    // =====================================================
-                    // ================= CALL RESPONSE ====================
-                    // =====================================================
-
                     if ("CALL_CONNECT_INFO".equals(type)) {
 
                         CallConnectInfo info =
@@ -748,10 +703,6 @@ public class ChatFrame extends JFrame {
 
                         SwingUtilities.invokeLater(() -> {
 
-                            /*
-                             * QUAN TRỌNG:
-                             * Dùng biến callController của ChatFrame
-                             */
                             callController =
                                     new CallController(
                                             currentUser,
@@ -795,85 +746,6 @@ public class ChatFrame extends JFrame {
                         continue;
                     }
 
-                    // =====================================================
-                    // ================ CALL CONNECT INFO =================
-                    // =====================================================
-
-                    if ("CALL_CONNECT_INFO".equals(type)) {
-
-                        CallConnectInfo info =
-                                gson.fromJson(
-                                        json,
-                                        CallConnectInfo.class
-                                );
-
-                        System.out.println(
-                                "================================"
-                        );
-
-                        System.out.println(
-                                "CALL CONNECT INFO"
-                        );
-
-                        System.out.println(
-                                "Partner: "
-                                        + info.getPartner()
-                        );
-
-                        System.out.println(
-                                "IP: "
-                                        + info.getIp()
-                        );
-
-                        System.out.println(
-                                "Port: "
-                                        + info.getPort()
-                        );
-
-                        System.out.println(
-                                "================================"
-                        );
-
-                        SwingUtilities.invokeLater(() -> {
-
-                            callController =
-                                    new CallController(
-                                            currentUser,
-                                            info.getPartner(),
-                                            writer
-                                    );
-
-                            boolean connected =
-                                    callController.connectToPeer(
-                                            info.getIp(),
-                                            info.getPort()
-                                    );
-
-                            if (!connected) {
-
-                                JOptionPane.showMessageDialog(
-                                        this,
-                                        "Không thể kết nối cuộc gọi!"
-                                );
-
-                                callController = null;
-
-                                return;
-                            }
-
-                            System.out.println(
-                                    "VOICE CONNECTED"
-                            );
-
-                        });
-
-                        continue;
-                    }
-
-                    // =====================================================
-                    // ==================== CALL END ======================
-                    // =====================================================
-
                     if ("CALL_END".equals(type)) {
 
                         CallEnd end =
@@ -889,9 +761,6 @@ public class ChatFrame extends JFrame {
 
                         SwingUtilities.invokeLater(() -> {
 
-                            /*
-                             * Đóng CallFrame NGAY
-                             */
                             if (callController != null) {
 
                                 callController.closeCall();
@@ -899,11 +768,6 @@ public class ChatFrame extends JFrame {
                                 callController = null;
                             }
 
-
-                            /*
-                             * Sau khi CallFrame đã đóng
-                             * mới hiện thông báo
-                             */
                             JOptionPane.showMessageDialog(
                                     this,
 
@@ -919,10 +783,6 @@ public class ChatFrame extends JFrame {
 
                         continue;
                     }
-
-                    // =====================================================
-                    // ================= CALL OFFLINE =====================
-                    // =====================================================
 
                     if ("CALL_OFFLINE".equals(type)) {
 
@@ -956,11 +816,6 @@ public class ChatFrame extends JFrame {
 
                         continue;
                     }
-
-
-                    // =====================================================
-                    // ====================== MESSAGE =====================
-                    // =====================================================
 
                     if ("MESSAGE".equals(type)) {
 
@@ -1004,11 +859,6 @@ public class ChatFrame extends JFrame {
 
                         continue;
                     }
-
-
-                    // =====================================================
-                    // UNKNOWN TYPE
-                    // =====================================================
 
                     System.out.println(
                             "Unknown message type: "

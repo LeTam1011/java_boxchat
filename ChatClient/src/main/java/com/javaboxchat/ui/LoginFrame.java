@@ -115,7 +115,7 @@ public class LoginFrame extends JFrame {
 
                 Socket socket =
                         new Socket(
-                                "localhost",
+                                "10.199.135.126",
                                 9999
                         );
 

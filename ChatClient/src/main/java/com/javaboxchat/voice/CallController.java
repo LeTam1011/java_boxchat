@@ -57,11 +57,6 @@ public class CallController {
         initEvents();
     }
 
-
-    // =====================================================
-    // MÁY NHẬN CUỘC GỌI
-    // =====================================================
-
     public void startListening() {
 
         connection =
@@ -125,11 +120,6 @@ public class CallController {
         ).start();
     }
 
-
-    // =====================================================
-    // MÁY CHỦ ĐỘNG GỌI
-    // =====================================================
-
     public boolean connectToPeer(
             String ip,
             int port
@@ -184,16 +174,7 @@ public class CallController {
         }
     }
 
-
-    // =====================================================
-    // CÁC NÚT TRÊN CALL FRAME
-    // =====================================================
-
     private void initEvents() {
-
-        // -------------------------------------------------
-        // MUTE
-        // -------------------------------------------------
 
         frame.getBtnMute()
                 .addActionListener(e -> {
@@ -238,11 +219,6 @@ public class CallController {
 
                 });
 
-
-        // -------------------------------------------------
-        // KẾT THÚC CUỘC GỌI
-        // -------------------------------------------------
-
         frame.getBtnEnd()
                 .addActionListener(e -> {
 
@@ -255,29 +231,12 @@ public class CallController {
                             "USER ENDED CALL"
                     );
 
-
-                    /*
-                     * BƯỚC 1:
-                     * Báo cho người bên kia
-                     */
-
                     sendCallEnd();
-
-
-                    /*
-                     * BƯỚC 2:
-                     * Tự đóng cuộc gọi NGAY
-                     */
 
                     closeCall();
 
                 });
     }
-
-
-    // =====================================================
-    // KHỞI ĐỘNG AUDIO
-    // =====================================================
 
     private void startVoiceStreams() {
 
@@ -316,10 +275,6 @@ public class CallController {
         }
     }
 
-
-    // =====================================================
-    // MICROPHONE
-    // =====================================================
 
     private synchronized void startAudio() {
 
@@ -380,11 +335,6 @@ public class CallController {
                 "Microphone"
         ).start();
     }
-
-
-    // =====================================================
-    // GỬI CALL_END
-    // =====================================================
 
     private void sendCallEnd() {
 
@@ -450,16 +400,7 @@ public class CallController {
         );
     }
 
-
-    // =====================================================
-    // ĐÓNG CUỘC GỌI
-    // =====================================================
-
     public synchronized void closeCall() {
-
-        /*
-         * Nếu đã đóng rồi thì không làm lại lần nữa.
-         */
 
         if (callClosed) {
 
@@ -473,11 +414,6 @@ public class CallController {
                 "Closing call with "
                         + partner
         );
-
-
-        // -------------------------------------------------
-        // 1. Tắt microphone
-        // -------------------------------------------------
 
         muted = true;
 
@@ -498,11 +434,6 @@ public class CallController {
             microphone = null;
         }
 
-
-        // -------------------------------------------------
-        // 2. Dừng receiver
-        // -------------------------------------------------
-
         if (receiver != null) {
 
             try {
@@ -517,20 +448,10 @@ public class CallController {
             receiver = null;
         }
 
-
-        // -------------------------------------------------
-        // 3. Dừng timer
-        // -------------------------------------------------
-
         if (frame != null) {
 
             frame.stopCallTimer();
         }
-
-
-        // -------------------------------------------------
-        // 4. Đóng sender
-        // -------------------------------------------------
 
         if (sender != null) {
 
@@ -546,11 +467,6 @@ public class CallController {
             sender = null;
         }
 
-
-        // -------------------------------------------------
-        // 5. Đóng VoiceConnection
-        // -------------------------------------------------
-
         if (connection != null) {
 
             try {
@@ -565,11 +481,6 @@ public class CallController {
             connection = null;
         }
 
-
-        // -------------------------------------------------
-        // 6. Đóng CallFrame
-        // -------------------------------------------------
-
         if (frame != null) {
 
             frame.dispose();
@@ -580,11 +491,6 @@ public class CallController {
                 "CALL CLOSED"
         );
     }
-
-
-    // =====================================================
-    // GET FRAME
-    // =====================================================
 
     public CallFrame getFrame() {
 

@@ -26,12 +26,10 @@ public class VoiceSender {
             byte[] data
     ) throws IOException {
 
-        // Gửi kích thước dữ liệu trước
         out.writeInt(
                 data.length
         );
 
-        // Gửi dữ liệu
         out.write(
                 data
         );

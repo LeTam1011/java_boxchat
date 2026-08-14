@@ -160,7 +160,7 @@ public class RegisterFrame extends JFrame {
 
                 Socket socket =
                         new Socket(
-                                "localhoast",
+                                "10.199.135.126",
                                 9999
                         );
 

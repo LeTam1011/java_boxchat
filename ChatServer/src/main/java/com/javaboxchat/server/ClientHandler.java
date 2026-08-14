@@ -289,10 +289,6 @@ public class ClientHandler implements Runnable {
                 }
 
 // Tin nhắn chat
-                // =====================================================
-// =================== CALL REQUEST ====================
-// =====================================================
-
                 if ("CALL_REQUEST".equals(typeRequest)) {
 
                     CallRequest callRequest =
@@ -319,9 +315,6 @@ public class ClientHandler implements Runnable {
                                 "CALL REQUEST SENT TO: "
                                         + callRequest.getReceiver()
                         );
-
-                        // QUAN TRỌNG:
-                        // Phải gửi callRequest, KHÔNG phải request
                         target.sendMessage(
                                 gson.toJson(
                                         callRequest
@@ -352,12 +345,6 @@ public class ClientHandler implements Runnable {
 
                     continue;
                 }
-
-
-// =====================================================
-// =================== CALL RESPONSE ===================
-// =====================================================
-
                 if ("CALL_RESPONSE".equals(typeRequest)) {
 
                     CallResponse callResponse =
@@ -381,19 +368,11 @@ public class ClientHandler implements Runnable {
                             );
 
                     if (caller != null) {
-
-                        // Gửi kết quả chấp nhận / từ chối
-                        // Phải gửi callResponse, KHÔNG phải response
                         caller.sendMessage(
                                 gson.toJson(
                                         callResponse
                                 )
                         );
-
-
-                        // =================================================
-                        // Người nhận ĐỒNG Ý
-                        // =================================================
 
                         if (callResponse.isAccepted()) {
 
@@ -454,11 +433,6 @@ public class ClientHandler implements Runnable {
                                     + " seconds"
                     );
 
-
-                    /*
-                     * Lưu lịch sử cuộc gọi
-                     */
-
                     java.time.LocalDateTime endTime =
                             java.time.LocalDateTime.now();
 
@@ -476,10 +450,6 @@ public class ClientHandler implements Runnable {
                             end.getDurationSeconds()
                     );
 
-
-                    /*
-                     * Gửi CALL_END sang người còn lại
-                     */
 
                     ClientHandler target =
                             ClientManager.getClient(

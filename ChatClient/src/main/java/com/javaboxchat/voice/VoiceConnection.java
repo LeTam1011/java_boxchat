@@ -12,11 +12,6 @@ public class VoiceConnection {
 
     private Socket socket;
 
-
-    /**
-     * Máy nhận cuộc gọi:
-     * Mở ServerSocket và chờ máy gọi kết nối.
-     */
     public void startListening() {
 
         try {
@@ -42,11 +37,6 @@ public class VoiceConnection {
         }
     }
 
-
-    /**
-     * Máy gọi:
-     * Kết nối trực tiếp tới IP của người nhận.
-     */
     public boolean connect(
             String ip,
             int port

@@ -15,7 +15,7 @@ public class FileClient {
 
             Socket socket =
                     new Socket(
-                            "192.168.1.10",
+                            "10.199.135.126",
                             10001
                     );
 
@@ -97,7 +97,7 @@ public class FileClient {
 
             Socket socket =
                     new Socket(
-                            "192.168.1.10",
+                            "10.199.135.126",
                             10001
                     );
 
