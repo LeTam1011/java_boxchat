@@ -111,7 +111,7 @@ public class FileClientHandler
                 );
 
         byte[] buffer =
-                new byte[4096];
+                new byte[15000];
 
         long remaining =
                 size;
